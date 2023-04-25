@@ -21,21 +21,16 @@ func split(ts []token, s token) [][]token {
 }
 
 // BUG: We don't currently support domain literals with commas.
-func parseAddressList(s []byte) ([]Address, error) {
+func parseAddressList(s []byte) ([]Address) {
 	al := []Address{}
-	ts, e := tokenize(s)
-	if e != nil {
-		return al, e
-	}
+	ts := tokenize(s)
+
 	tts := split(ts, []byte{','})
 	for _, ts := range tts {
-		a, e := parseAddress(ts)
-		if e != nil {
-			return al, e
-		}
+		a := parseAddress(ts)
 		al = append(al, a)
 	}
-	return al, nil
+	return al
 }
 
 func decodeRFC2047(word string) string {

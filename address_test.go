@@ -15,7 +15,7 @@ type parseAddressTest struct {
 var parseAddressTests = []parseAddressTest{
 	parseAddressTest{
 		`"Joe Q. Public" <john.q.public@example.com>`,
-		MailboxAddr{`"Joe Q. Public"`, `john.q.public`, `example.com`},
+		MailboxAddr{`Joe Q. Public`, `john.q.public`, `example.com`},
 	},
 	parseAddressTest{
 		`Mary Smith <mary@x.test>`,
@@ -35,7 +35,7 @@ var parseAddressTests = []parseAddressTest{
 	},
 	parseAddressTest{
 		`"Giant; \"Big\" Box" <sysservices@example.net>`,
-		MailboxAddr{`"Giant; \"Big\" Box"`, `sysservices`, `example.net`},
+		MailboxAddr{`Giant; \"Big\" Box`, `sysservices`, `example.net`},
 	},
 	parseAddressTest{
 		`Pete <pete@silly.example>`,
@@ -64,12 +64,10 @@ var parseAddressTests = []parseAddressTest{
 
 func TestParseAddress(t *testing.T) {
 	for _, pt := range parseAddressTests {
-		address, err := ParseAddress([]byte(pt.addrStr))
-		if err != nil {
-			t.Errorf("ParseAddress returned error for %#V", pt.addrStr)
-		} else if !reflect.DeepEqual(address, pt.addrRes) {
+		address := ParseAddress([]byte(pt.addrStr))
+		if !reflect.DeepEqual(address, pt.addrRes) {
 			t.Errorf(
-				"ParseAddress: incorrect result for %#V: gave %#V; expected %#V",
+				"ParseAddress: incorrect result for %#v: gave %#v; expected %#v",
 				pt.addrStr, address, pt.addrRes)
 		}
 	}

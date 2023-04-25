@@ -2,7 +2,8 @@ package eml
 
 import (
 	"bytes"
-	"errors"
+	"fmt"
+	"os"
 	"regexp"
 )
 
@@ -14,6 +15,7 @@ var (
 	atomR    = regexp.MustCompile("^[a-zA-Z0-9!#$%&`*+\\-/=?^_'{|}~]+")
 	specialR = regexp.MustCompile(`^[()<>\[\]:;@\,."]`)
 	qStringR = regexp.MustCompilePOSIX(`^"([^"]|\\")*"`)
+	localR   = regexp.MustCompile(`[\p{L}]+`)
 )
 
 type token []byte
@@ -29,13 +31,13 @@ func try(re *regexp.Regexp, s []byte) int {
 	return is[1]
 }
 
-func tokenize(s []byte) (ts []token, err error) {
+func tokenize(s []byte) (ts []token) {
 Next:
 	s = bytes.TrimSpace(s)
 	if len(s) == 0 {
 		return
 	}
-	for _, r := range []*regexp.Regexp{dotAtomR, atomR, qStringR, specialR} {
+	for _, r := range []*regexp.Regexp{dotAtomR, atomR, qStringR, specialR, localR} {
 		i := try(r, s)
 		if i > 0 {
 			ts = append(ts, s[0:i])
@@ -43,5 +45,8 @@ Next:
 			goto Next
 		}
 	}
-	return nil, errors.New("unidentifiable token")
+
+	fmt.Fprintf(os.Stderr, "Unidentifiable token: %s\n", s)
+	ts = append(ts, s)
+	return
 }

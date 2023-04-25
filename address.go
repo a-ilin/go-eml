@@ -3,8 +3,8 @@
 package eml
 
 import (
-	"errors"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -29,8 +29,14 @@ func (ma MailboxAddr) Name() string {
 
 func (ma MailboxAddr) String() string {
 	if ma.name == "" {
+		if ma.domain == "" {
+			return ma.local
+		}
 		return fmt.Sprintf("%s@%s", ma.local, ma.domain)
+	} else if ma.local == "" || ma.domain == "" {
+		return ma.name
 	}
+
 	return fmt.Sprintf("%s <%s@%s>", ma.name, ma.local, ma.domain)
 }
 
@@ -55,24 +61,19 @@ func (ga GroupAddr) Email() string {
 	return ""
 }
 
-func ParseAddress(bs []byte) (Address, error) {
-	toks, err := tokenize(bs)
-	if err != nil {
-		return nil, err
-	}
+func ParseAddress(bs []byte) (Address) {
+	toks := tokenize(bs)
 	return parseAddress(toks)
 }
 
-func parseAddress(toks []token) (Address, error) {
+func parseAddress(toks []token) (Address) {
 	// If this is a group, it must end in a ";" token.
 	ltok := toks[len(toks)-1]
 	if len(ltok) == 1 && ltok[0] == ';' {
 		ga := GroupAddr{}
 		// we split on ':'
-		nts, rest, err := splitOn(toks, []byte{':'})
-		if err != nil {
-			return nil, err
-		}
+		nts, rest := splitOn(toks, []byte{':'})
+
 		for _, nt := range nts {
 			ga.name += string(nt) + " "
 		}
@@ -83,30 +84,29 @@ func parseAddress(toks []token) (Address, error) {
 		something := false
 		for i, t := range rest {
 			if len(t) == 1 && (t[0] == ',' || t[0] == ';') && something {
-				ma, err := parseMailboxAddr(rest[last:i])
-				if err != nil {
-					return nil, err
-				}
+				ma := parseMailboxAddr(rest[last:i])
 				ga.boxes = append(ga.boxes, ma)
 				last = i + 1
 			}
 			something = true
 		}
-		return ga, nil
+		return ga
 	}
 	return parseMailboxAddr(toks)
 }
 
-func splitOn(ts []token, s token) ([]token, []token, error) {
+func splitOn(ts []token, s token) ([]token, []token) {
 	for i, t := range ts {
 		if string(t) == string(s) {
-			return ts[:i], ts[i+1:], nil
+			return ts[:i], ts[i+1:]
 		}
 	}
-	return nil, nil, errors.New("split token not found")
+
+	fmt.Fprintf(os.Stderr, "Split token not found '%s': %v\n", s, ts)
+	return ts, []token{}
 }
 
-func parseMailboxAddr(ts []token) (ma MailboxAddr, err error) {
+func parseMailboxAddr(ts []token) (ma MailboxAddr) {
 	// We're either name-addr or an addr-spec. If we end in ">", then all
 	// characters up to "<" constitute the name. Otherwise, there is no
 	// name.
@@ -114,30 +114,43 @@ func parseMailboxAddr(ts []token) (ma MailboxAddr, err error) {
 	ltok := ts[len(ts)-1]
 	if len(ltok) == 1 && ltok[0] == '>' {
 		var nts, ats []token
-		nts, ats, err = splitOn(ts, []byte{'<'})
-		if err != nil {
-			return
-		}
+		nts, ats = splitOn(ts, []byte{'<'})
+
 		for _, nt := range nts {
 			ma.name += string(nt) + " "
 		}
 		ma.name = strings.TrimSpace(ma.name)
-		ma.local, ma.domain, err = parseSimpleAddr(ats[:len(ats)-1])
+		ma.name = strings.TrimPrefix(ma.name, `"`)
+		ma.name = strings.TrimSuffix(ma.name, `"`)
+
+		if len(ats) > 0 {
+			ma.local, ma.domain = parseSimpleAddr(ats[:len(ats)-1])
+		}
+
 		return
 	}
-	ma.local, ma.domain, err = parseSimpleAddr(ts)
+	ma.local, ma.domain = parseSimpleAddr(ts)
 	return
 }
 
-func parseSimpleAddr(ts []token) (l, d string, e error) {
+func parseSimpleAddr(ts []token) (l, d string) {
 	// The second token must be '@' - all further tokens are stuck in the domain.
-	l = string(ts[0])
-	if !(len(ts[1]) == 1 && ts[1][0] == '@') {
-		return "", "", errors.New("invalid simpleAddr")
+	if len(ts) > 0 {
+		l = string(ts[0])
 	}
-	for _, dp := range ts[2:] {
-		d += string(dp) + " "
+
+	if len(ts) > 1 {
+		if !(len(ts[1]) == 1 && ts[1][0] == '@') {
+			for _, lp := range ts[1:] {
+				l += " " + string(lp)
+			}
+			l = strings.TrimSpace(l)
+		} else if len(ts) > 2 {
+			for _, dp := range ts[2:] {
+				d += string(dp) + " "
+			}
+			d = strings.TrimSpace(d)
+		}
 	}
-	d = strings.TrimSpace(d)
 	return
 }
