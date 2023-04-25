@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"mime/quotedprintable"
+	"net/textproto"
 	"regexp"
 	"strings"
 	"time"
@@ -139,7 +140,7 @@ func Process(r RawMessage) (m Message, e error) {
 	}
 
 	if m.ContentType != `` {
-		parts, er := parseBody(m.ContentType, r.Body)
+		parts, er := parseBody(r.Body, textproto.MIMEHeader{"Content-Type": []string{m.ContentType}})
 		if er != nil {
 			e = er
 			return

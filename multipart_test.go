@@ -1,6 +1,7 @@
 package eml
 
 import (
+	"net/textproto"
 	"reflect"
 	"testing"
 )
@@ -16,7 +17,12 @@ var parseBodyTests = []parseBodyTest{
 		ct:   "text/plain",
 		body: []byte(`This is some text.`),
 		rps: []Part{
-			Part{"text/plain", "UTF-8", []byte("This is some text."), nil},
+			Part{"text/plain", "UTF-8", []byte("This is some text."),
+				map[string][]string{
+					"Content-Type": []string{
+						"text/plain",
+					},
+				}},
 		},
 	},
 	parseBodyTest{
@@ -51,9 +57,6 @@ Some other text.
 					"Content-Type": []string{
 						"text/html; charset=ISO-8859-1",
 					},
-					"Content-Transfer-Encoding": []string{
-						"quoted-printable",
-					},
 				},
 			},
 		},
@@ -62,12 +65,12 @@ Some other text.
 
 func TestParseBody(t *testing.T) {
 	for _, pt := range parseBodyTests {
-		parts, e := parseBody(pt.ct, pt.body)
+		parts, e := parseBody(pt.body, textproto.MIMEHeader{"Content-Type": []string{pt.ct}})
 		if e != nil {
 			t.Errorf("parseBody returned error for %#v: %#v", pt, e)
 		} else if !reflect.DeepEqual(parts, pt.rps) {
 			t.Errorf(
-				"parseBody: incorrect result for %#V: \n%#v\nvs.\n%#v",
+				"parseBody: incorrect result for %#v: \n%#v\nvs.\n%#v",
 				pt, parts, pt.rps)
 		}
 	}
