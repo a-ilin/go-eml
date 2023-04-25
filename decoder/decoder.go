@@ -10,6 +10,11 @@ import (
 	"mime/quotedprintable"
 
 	"github.com/paulrosania/go-charset/charset"
+	_ "github.com/paulrosania/go-charset/data"
+)
+
+var  (
+	parseRx = regexp.MustCompile(`^=\?(.*?)\?(.*?)\?(.*)\?=$`)
 )
 
 func UTF8(cs string, data []byte) ([]byte, error) {
@@ -26,9 +31,9 @@ func UTF8(cs string, data []byte) ([]byte, error) {
 
 }
 
-func Parse(bstr []byte) ([]byte, error) {
+func parseField(bstr []byte) ([]byte, error) {
 	var err error
-	strs := regexp.MustCompile("^=\\?(.*?)\\?(.*?)\\?(.*)\\?=$").FindAllStringSubmatch(string(bstr), -1)
+	strs := parseRx.FindAllStringSubmatch(string(bstr), -1)
 
 	if len(strs) > 0 && len(strs[0]) == 4 {
 		c := strs[0][1]
@@ -43,7 +48,28 @@ func Parse(bstr []byte) ([]byte, error) {
 		return UTF8(c, bstr)
 	}
 	return bstr, err
+}
 
+func Parse(bstr []byte) ([]byte, error) {
+	var err error
+	strs := parseRx.FindAllStringSubmatch(string(bstr), -1)
+
+	if len(strs) > 0 && len(strs[0]) == 4 {
+		multistr := []byte{}
+
+		// decode multiline string separately
+		sbs := strings.Fields(string(bstr))
+		for _, sb := range sbs {
+			sbd, err := parseField([]byte(sb))
+			if err != nil {
+				return bstr, err
+			}
+			multistr = append(multistr, sbd...)
+		}
+
+		return multistr, nil
+	}
+	return bstr, err
 }
 
 func Decode(e string, bstr []byte) ([]byte, error) {
