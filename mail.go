@@ -46,10 +46,14 @@ type HeaderInfo struct {
 	Subject     string
 	Comments    []string
 	Keywords    []string
+	ContentBase string
 	ContentType string
 
 	InReply    []string
 	References []string
+
+	ReceivedBy   string
+	ReceivedDate time.Time
 }
 
 type Message struct {
@@ -85,9 +89,11 @@ func Process(r RawMessage) (m Message, e error) {
 		h := Header{string(rh.Key), string(rh.Value)}
 		m.FullHeaders = append(m.FullHeaders, h)
 		switch string(rh.Key) {
+		case `Content-Base`:
+			m.ContentBase = string(rh.Value)
 		case `Content-Type`:
 			m.ContentType = string(rh.Value)
-		case `Message-ID`:
+		case `Message-ID`, `Message-Id`:
 			v := bytes.Trim(rh.Value, `<>`)
 			m.MessageId = string(v)
 			m.Id = mkId(v)
@@ -127,6 +133,16 @@ func Process(r RawMessage) (m Message, e error) {
 			ks := strings.Split(string(rh.Value), ",")
 			for _, k := range ks {
 				m.Keywords = append(m.Keywords, strings.TrimSpace(k))
+			}
+		case `Received`:
+			rds := strings.Split(string(rh.Value), ";")
+			for _, rd := range rds {
+				rd = strings.TrimSpace(rd)
+				if strings.HasPrefix(rd, "by ") {
+					m.ReceivedBy = strings.TrimSpace(strings.TrimPrefix(rd, "by "))
+				} else {
+					m.ReceivedDate = ParseDate(rd)
+				}
 			}
 		default:
 			m.OptHeaders = append(m.OptHeaders, h)
