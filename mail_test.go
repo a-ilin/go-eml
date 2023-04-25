@@ -95,6 +95,21 @@ hello, world
 `),
 		},
 	},
+	parseRawTest{
+		msg: []byte(`a:
+c: d fdsa
+
+hello, world
+`),
+		ret: RawMessage{
+			RawHeaders: []RawHeader{
+				RawHeader{[]byte("a"), []byte("")},
+				RawHeader{[]byte("c"), []byte("d fdsa")},
+			},
+			Body: []byte(`hello, world
+`),
+		},
+	},
 }
 
 func TestParseRaw(t *testing.T) {

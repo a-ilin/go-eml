@@ -270,6 +270,17 @@ func ParseRaw(s []byte) (m RawMessage, e error) {
 			if !isWSP(b) {
 				vstart = i
 				state = HVAL
+
+				if b == CR && i < len(s)-2 && s[i+1] == LF && !isWSP(s[i+2]) {
+					hdr := RawHeader{s[kstart:kend], []byte{}}
+					m.RawHeaders = append(m.RawHeaders, hdr)
+					state = READY
+					i++
+				} else if b == LF && i < len(s)-1 && !isWSP(s[i+1]) {
+					hdr := RawHeader{s[kstart:kend], []byte{}}
+					m.RawHeaders = append(m.RawHeaders, hdr)
+					state = READY
+				}
 			}
 		case HVAL:
 			if b == CR && i < len(s)-2 && s[i+1] == LF && !isWSP(s[i+2]) {
@@ -279,7 +290,7 @@ func ParseRaw(s []byte) (m RawMessage, e error) {
 				state = READY
 				i++
 			} else if b == LF && i < len(s)-1 && !isWSP(s[i+1]) {
-				v := bytes.Replace(s[vstart:i], CRLF, nil, -1)
+				v := bytes.Replace(s[vstart:i], []byte{LF}, nil, -1)
 				hdr := RawHeader{s[kstart:kend], v}
 				m.RawHeaders = append(m.RawHeaders, hdr)
 				state = READY
